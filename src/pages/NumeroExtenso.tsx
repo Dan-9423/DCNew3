@@ -104,53 +104,57 @@ export default function NumeroExtenso() {
   const [formato, setFormato] = useState<'lowercase' | 'uppercase' | 'capitalize'>('lowercase');
   const [valor, setValor] = useState('');
   const [resultado, setResultado] = useState('');
+  const [valorNumerico, setValorNumerico] = useState<number>(0);
 
-  const formatarValor = (value: string) => {
-    // Remove tudo exceto números e vírgula
-    let numerico = value.replace(/[^\d,]/g, '');
+  const formatarValor = (value: string, tipoUnidade: 'monetaria' | 'numerica' = unidade) => {
+    // Remove tudo exceto números
+    let numerico = value.replace(/\D/g, '');
     
-    // Converte vírgula para ponto
-    numerico = numerico.replace(',', '.');
+    // Se estiver vazio, retorna vazio
+    if (!numerico) return '';
     
-    // Limita a dois decimais
-    const partes = numerico.split('.');
-    if (partes.length > 1) {
-      numerico = partes[0] + '.' + partes[1].slice(0, 2);
-    }
+    // Converte para número
+    const numero = parseInt(numerico);
     
-    const numero = parseFloat(numerico) || 0;
-    
-    // Formata o número de acordo com a unidade
-    if (unidade === 'monetaria') {
-      return numero.toLocaleString('pt-BR', {
+    if (tipoUnidade === 'monetaria') {
+      // Formata como moeda
+      return (numero / 100).toLocaleString('pt-BR', {
         style: 'currency',
         currency: 'BRL',
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       });
     } else {
+      // Formata como número
       return numero.toLocaleString('pt-BR');
     }
   };
 
   const handleValorChange = (inputValue: string) => {
     // Remove formatação atual
-    let limpo = inputValue.replace(/[^\d,]/g, '');
+    let limpo = inputValue.replace(/\D/g, '');
     
-    // Se estiver vazio, define como zero
+    // Se estiver vazio, limpa o campo
     if (!limpo) {
-      limpo = '0';
+      setValor('');
+      setValorNumerico(0);
+      setResultado('');
+      return;
     }
     
-    // Formata o valor
+    // Converte para número
+    const numero = parseInt(limpo);
+    setValorNumerico(numero);
+    
+    // Formata o valor para exibição
     const formatado = formatarValor(limpo);
     setValor(formatado);
     
-    // Converte para número para processar
-    const numero = parseFloat(limpo.replace(',', '.')) || 0;
+    // Calcula o número para conversão por extenso
+    const numeroParaConverter = unidade === 'monetaria' ? numero / 100 : numero;
     
     // Gera o texto por extenso
-    let texto = numeroParaExtenso(numero, unidade);
+    let texto = numeroParaExtenso(numeroParaConverter, unidade);
     
     // Aplica o formato de texto selecionado
     switch (formato) {
@@ -171,11 +175,20 @@ export default function NumeroExtenso() {
 
   const handleUnidadeChange = (novaUnidade: 'monetaria' | 'numerica') => {
     setUnidade(novaUnidade);
+    
     // Reprocessa o valor atual com a nova unidade
-    if (valor) {
-      const numero = parseFloat(valor.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-      let texto = numeroParaExtenso(numero, novaUnidade);
+    if (valorNumerico > 0) {
+      const numeroString = valorNumerico.toString();
+      const formatado = formatarValor(numeroString, novaUnidade);
+      setValor(formatado);
       
+      // Calcula o número para conversão por extenso
+      const numeroParaConverter = novaUnidade === 'monetaria' ? valorNumerico / 100 : valorNumerico;
+      
+      // Gera o texto por extenso
+      let texto = numeroParaExtenso(numeroParaConverter, novaUnidade);
+      
+      // Aplica o formato de texto selecionado
       switch (formato) {
         case 'uppercase':
           texto = texto.toUpperCase();
@@ -190,7 +203,6 @@ export default function NumeroExtenso() {
       }
       
       setResultado(texto);
-      setValor(formatarValor(numero.toString()));
     }
   };
 
@@ -264,16 +276,6 @@ export default function NumeroExtenso() {
             <Input
               value={valor}
               onChange={(e) => handleValorChange(e.target.value)}
-              onFocus={(e) => {
-                if (e.target.value === 'R$ 0,00' || e.target.value === '0') {
-                  setValor('');
-                }
-              }}
-              onBlur={() => {
-                if (!valor) {
-                  handleValorChange('0');
-                }
-              }}
               placeholder={unidade === 'monetaria' ? 'R$ 0,00' : '0'}
             />
           </div>
