@@ -9,48 +9,94 @@ function numeroParaExtenso(numero: number, tipo: 'monetaria' | 'numerica'): stri
   const dezADezenove = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
   const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
   const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+  const milhares = ['', 'mil', 'milhão', 'bilhão', 'trilhão'];
+  const milharesPlural = ['', 'mil', 'milhões', 'bilhões', 'trilhões'];
 
   if (numero === 0) return 'zero';
   if (numero === 100) return 'cem';
 
-  let extenso = '';
-  
-  // Centenas
-  if (numero >= 100) {
-    extenso += centenas[Math.floor(numero / 100)] + ' e ';
-    numero %= 100;
-  }
-  
-  // Dezenas e unidades
-  if (numero >= 10 && numero < 20) {
-    extenso += dezADezenove[numero - 10];
-  } else {
-    if (numero >= 20) {
-      extenso += dezenas[Math.floor(numero / 10)];
-      numero %= 10;
-      if (numero > 0) extenso += ' e ';
+  function converterGrupo(n: number): string {
+    let resultado = '';
+    
+    // Centenas
+    const centena = Math.floor(n / 100);
+    if (centena > 0) {
+      resultado += centenas[centena];
+      n %= 100;
+      if (n > 0) resultado += ' e ';
     }
-    if (numero > 0) extenso += unidades[numero];
+    
+    // Dezenas e unidades
+    if (n >= 10 && n < 20) {
+      resultado += dezADezenove[n - 10];
+    } else {
+      const dezena = Math.floor(n / 10);
+      if (dezena > 0) {
+        resultado += dezenas[dezena];
+        n %= 10;
+        if (n > 0) resultado += ' e ';
+      }
+      if (n > 0) {
+        resultado += unidades[n];
+      }
+    }
+    
+    return resultado;
   }
 
-  let resultado = extenso.trim();
+  function converterNumeroCompleto(n: number): string {
+    if (n === 0) return 'zero';
+    
+    let resultado = '';
+    let i = 0;
+    
+    while (n > 0) {
+      const grupo = n % 1000;
+      if (grupo > 0) {
+        const conversaoGrupo = converterGrupo(grupo);
+        if (i > 0) {
+          if (grupo === 1) {
+            resultado = milhares[i] + ' ' + resultado;
+          } else {
+            resultado = conversaoGrupo + ' ' + milharesPlural[i] + ' ' + resultado;
+          }
+        } else {
+          resultado = conversaoGrupo;
+        }
+      }
+      n = Math.floor(n / 1000);
+      i++;
+    }
+    
+    return resultado.trim();
+  }
 
   if (tipo === 'monetaria') {
-    const reais = Math.floor(numero);
-    const centavos = Math.round((numero - reais) * 100);
+    const partes = numero.toString().split('.');
+    const reais = parseInt(partes[0]);
+    const centavos = partes.length > 1 ? parseInt(partes[1].padEnd(2, '0')) : 0;
+
+    let resultado = '';
 
     if (reais > 0) {
+      resultado += converterNumeroCompleto(reais);
       resultado += reais === 1 ? ' real' : ' reais';
     }
 
     if (centavos > 0) {
       if (reais > 0) resultado += ' e ';
-      resultado += numeroParaExtenso(centavos, 'numerica');
+      resultado += converterNumeroCompleto(centavos);
       resultado += centavos === 1 ? ' centavo' : ' centavos';
     }
-  }
 
-  return resultado;
+    if (reais === 0 && centavos === 0) {
+      resultado = 'zero reais';
+    }
+
+    return resultado;
+  } else {
+    return converterNumeroCompleto(Math.floor(numero));
+  }
 }
 
 export default function NumeroExtenso() {
@@ -59,24 +105,54 @@ export default function NumeroExtenso() {
   const [valor, setValor] = useState('');
   const [resultado, setResultado] = useState('');
 
-  const handleValorChange = (value: string) => {
-    // Remove tudo exceto números e ponto/vírgula
-    const numerico = value.replace(/[^\d.,]/g, '').replace(',', '.');
-    setValor(numerico);
-
-    if (!numerico) {
-      setResultado('');
-      return;
+  const formatarValor = (value: string) => {
+    // Remove tudo exceto números e vírgula
+    let numerico = value.replace(/[^\d,]/g, '');
+    
+    // Converte vírgula para ponto
+    numerico = numerico.replace(',', '.');
+    
+    // Limita a dois decimais
+    const partes = numerico.split('.');
+    if (partes.length > 1) {
+      numerico = partes[0] + '.' + partes[1].slice(0, 2);
     }
-
-    const numero = parseFloat(numerico);
-    if (isNaN(numero)) {
-      setResultado('');
-      return;
+    
+    const numero = parseFloat(numerico) || 0;
+    
+    // Formata o número de acordo com a unidade
+    if (unidade === 'monetaria') {
+      return numero.toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    } else {
+      return numero.toLocaleString('pt-BR');
     }
+  };
 
+  const handleValorChange = (inputValue: string) => {
+    // Remove formatação atual
+    let limpo = inputValue.replace(/[^\d,]/g, '');
+    
+    // Se estiver vazio, define como zero
+    if (!limpo) {
+      limpo = '0';
+    }
+    
+    // Formata o valor
+    const formatado = formatarValor(limpo);
+    setValor(formatado);
+    
+    // Converte para número para processar
+    const numero = parseFloat(limpo.replace(',', '.')) || 0;
+    
+    // Gera o texto por extenso
     let texto = numeroParaExtenso(numero, unidade);
-
+    
+    // Aplica o formato de texto selecionado
     switch (formato) {
       case 'uppercase':
         texto = texto.toUpperCase();
@@ -89,8 +165,51 @@ export default function NumeroExtenso() {
       default:
         texto = texto.toLowerCase();
     }
-
+    
     setResultado(texto);
+  };
+
+  const handleUnidadeChange = (novaUnidade: 'monetaria' | 'numerica') => {
+    setUnidade(novaUnidade);
+    // Reprocessa o valor atual com a nova unidade
+    if (valor) {
+      const numero = parseFloat(valor.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+      let texto = numeroParaExtenso(numero, novaUnidade);
+      
+      switch (formato) {
+        case 'uppercase':
+          texto = texto.toUpperCase();
+          break;
+        case 'capitalize':
+          texto = texto.split(' ').map(word => 
+            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+          ).join(' ');
+          break;
+        default:
+          texto = texto.toLowerCase();
+      }
+      
+      setResultado(texto);
+      setValor(formatarValor(numero.toString()));
+    }
+  };
+
+  const handleFormatoChange = (novoFormato: 'lowercase' | 'uppercase' | 'capitalize') => {
+    setFormato(novoFormato);
+    if (resultado) {
+      let novoTexto = resultado.toLowerCase();
+      switch (novoFormato) {
+        case 'uppercase':
+          novoTexto = novoTexto.toUpperCase();
+          break;
+        case 'capitalize':
+          novoTexto = novoTexto.split(' ').map(word => 
+            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+          ).join(' ');
+          break;
+      }
+      setResultado(novoTexto);
+    }
   };
 
   return (
@@ -104,10 +223,7 @@ export default function NumeroExtenso() {
             <Label>1. Qual a unidade?</Label>
             <RadioGroup
               value={unidade}
-              onValueChange={(value: 'monetaria' | 'numerica') => {
-                setUnidade(value);
-                handleValorChange(valor);
-              }}
+              onValueChange={(value: 'monetaria' | 'numerica') => handleUnidadeChange(value)}
               className="flex gap-4"
             >
               <div className="flex items-center space-x-2">
@@ -125,10 +241,7 @@ export default function NumeroExtenso() {
             <Label>2. Qual o tipo de letra?</Label>
             <RadioGroup
               value={formato}
-              onValueChange={(value: 'lowercase' | 'uppercase' | 'capitalize') => {
-                setFormato(value);
-                handleValorChange(valor);
-              }}
+              onValueChange={(value: 'lowercase' | 'uppercase' | 'capitalize') => handleFormatoChange(value)}
               className="flex gap-4"
             >
               <div className="flex items-center space-x-2">
@@ -151,6 +264,16 @@ export default function NumeroExtenso() {
             <Input
               value={valor}
               onChange={(e) => handleValorChange(e.target.value)}
+              onFocus={(e) => {
+                if (e.target.value === 'R$ 0,00' || e.target.value === '0') {
+                  setValor('');
+                }
+              }}
+              onBlur={() => {
+                if (!valor) {
+                  handleValorChange('0');
+                }
+              }}
               placeholder={unidade === 'monetaria' ? 'R$ 0,00' : '0'}
             />
           </div>
