@@ -2,15 +2,9 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-function numeroParaExtenso(numero: number): string {
+function numeroParaExtenso(numero: number, tipo: 'monetaria' | 'numerica'): string {
   const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
   const dezADezenove = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
   const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
@@ -39,55 +33,64 @@ function numeroParaExtenso(numero: number): string {
     if (numero > 0) extenso += unidades[numero];
   }
 
-  return extenso.trim();
+  let resultado = extenso.trim();
+
+  if (tipo === 'monetaria') {
+    const reais = Math.floor(numero);
+    const centavos = Math.round((numero - reais) * 100);
+
+    if (reais > 0) {
+      resultado += reais === 1 ? ' real' : ' reais';
+    }
+
+    if (centavos > 0) {
+      if (reais > 0) resultado += ' e ';
+      resultado += numeroParaExtenso(centavos, 'numerica');
+      resultado += centavos === 1 ? ' centavo' : ' centavos';
+    }
+  }
+
+  return resultado;
 }
 
 export default function NumeroExtenso() {
-  const [reais, setReais] = useState('');
-  const [centavos, setCentavos] = useState('');
-  const [formato, setFormato] = useState<'lowercase' | 'uppercase'>('lowercase');
+  const [unidade, setUnidade] = useState<'monetaria' | 'numerica'>('monetaria');
+  const [formato, setFormato] = useState<'lowercase' | 'uppercase' | 'capitalize'>('lowercase');
+  const [valor, setValor] = useState('');
   const [resultado, setResultado] = useState('');
 
-  const handleReaisChange = (value: string) => {
-    const numerico = value.replace(/\D/g, '');
-    setReais(numerico);
-    atualizarResultado(numerico, centavos);
-  };
+  const handleValorChange = (value: string) => {
+    // Remove tudo exceto números e ponto/vírgula
+    const numerico = value.replace(/[^\d.,]/g, '').replace(',', '.');
+    setValor(numerico);
 
-  const handleCentavosChange = (value: string) => {
-    const numerico = value.replace(/\D/g, '').slice(0, 2);
-    setCentavos(numerico);
-    atualizarResultado(reais, numerico);
-  };
-
-  const atualizarResultado = (reaisValue: string, centavosValue: string) => {
-    if (!reaisValue && !centavosValue) {
+    if (!numerico) {
       setResultado('');
       return;
     }
 
-    const reaisNum = parseInt(reaisValue || '0');
-    const centavosNum = parseInt(centavosValue || '0');
-
-    let texto = '';
-
-    if (reaisNum > 0) {
-      texto += numeroParaExtenso(reaisNum);
-      texto += reaisNum === 1 ? ' real' : ' reais';
+    const numero = parseFloat(numerico);
+    if (isNaN(numero)) {
+      setResultado('');
+      return;
     }
 
-    if (centavosNum > 0) {
-      if (reaisNum > 0) texto += ' e ';
-      texto += numeroParaExtenso(centavosNum);
-      texto += centavosNum === 1 ? ' centavo' : ' centavos';
+    let texto = numeroParaExtenso(numero, unidade);
+
+    switch (formato) {
+      case 'uppercase':
+        texto = texto.toUpperCase();
+        break;
+      case 'capitalize':
+        texto = texto.split(' ').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(' ');
+        break;
+      default:
+        texto = texto.toLowerCase();
     }
 
-    setResultado(formato === 'uppercase' ? texto.toUpperCase() : texto.toLowerCase());
-  };
-
-  const handleFormatoChange = (value: 'lowercase' | 'uppercase') => {
-    setFormato(value);
-    setResultado(prev => value === 'uppercase' ? prev.toUpperCase() : prev.toLowerCase());
+    setResultado(texto);
   };
 
   return (
@@ -97,39 +100,59 @@ export default function NumeroExtenso() {
           <CardTitle>Número por Extenso</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="reais">Reais</Label>
-              <Input
-                id="reais"
-                placeholder="0"
-                value={reais}
-                onChange={(e) => handleReaisChange(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="centavos">Centavos</Label>
-              <Input
-                id="centavos"
-                placeholder="00"
-                value={centavos}
-                onChange={(e) => handleCentavosChange(e.target.value)}
-                maxLength={2}
-              />
-            </div>
+          <div className="space-y-3">
+            <Label>1. Qual a unidade?</Label>
+            <RadioGroup
+              value={unidade}
+              onValueChange={(value: 'monetaria' | 'numerica') => {
+                setUnidade(value);
+                handleValorChange(valor);
+              }}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="monetaria" id="monetaria" />
+                <Label htmlFor="monetaria">Monetária (R$)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="numerica" id="numerica" />
+                <Label htmlFor="numerica">Numérica (número simples)</Label>
+              </div>
+            </RadioGroup>
           </div>
 
-          <div className="space-y-2">
-            <Label>Formato</Label>
-            <Select value={formato} onValueChange={handleFormatoChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o formato" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="lowercase">Minúsculas</SelectItem>
-                <SelectItem value="uppercase">Maiúsculas</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="space-y-3">
+            <Label>2. Qual o tipo de letra?</Label>
+            <RadioGroup
+              value={formato}
+              onValueChange={(value: 'lowercase' | 'uppercase' | 'capitalize') => {
+                setFormato(value);
+                handleValorChange(valor);
+              }}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="lowercase" id="lowercase" />
+                <Label htmlFor="lowercase">Minúsculas</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="uppercase" id="uppercase" />
+                <Label htmlFor="uppercase">Maiúsculas</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="capitalize" id="capitalize" />
+                <Label htmlFor="capitalize">Primeira Letra Maiúscula</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <div className="space-y-3">
+            <Label>3. Valor</Label>
+            <Input
+              value={valor}
+              onChange={(e) => handleValorChange(e.target.value)}
+              placeholder={unidade === 'monetaria' ? 'R$ 0,00' : '0'}
+            />
           </div>
 
           <div className="space-y-2">
