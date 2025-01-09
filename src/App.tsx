@@ -11,6 +11,7 @@ import DashboardNav from './components/DashboardNav';
 import Home from './pages/Home';
 import Profile from './pages/Profile';
 import Auth from './pages/Auth';
+import NumeroExtenso from './pages/NumeroExtenso';
 
 // Import pages
 import ContasSemanais from './pages/relatorios/ContasSemanais';
@@ -35,7 +36,7 @@ function RequireAuth({ children }: { children: JSX.Element }) {
 
 function AppContent() {
   const location = useLocation();
-  const showDashboardNav = !['/profile', '/', '/settings'].includes(location.pathname);
+  const showDashboardNav = !['/profile', '/', '/settings', '/numero-extenso'].includes(location.pathname);
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-[#111111]">
@@ -54,6 +55,7 @@ function AppContent() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/numero-extenso" element={<NumeroExtenso />} />
               
               {/* Report Routes */}
               <Route path="/relatorios/contas-semanais" element={<ContasSemanais />} />

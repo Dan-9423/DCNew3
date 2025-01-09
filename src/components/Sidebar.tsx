@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Minus, LayoutDashboard, Users, Settings, BarChart2, FileText, LogOut, Home, ChevronLeft, ChevronRight, Factory } from 'lucide-react';
+import { Plus, Minus, LayoutDashboard, Users, Settings, BarChart2, FileText, LogOut, Home, ChevronLeft, ChevronRight, Factory, TextQuote } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Link, useLocation } from 'react-router-dom';
@@ -86,6 +86,11 @@ export default function Sidebar() {
         { title: 'Envio de E-mails', path: '/emails/enviar' },
         { title: 'Template de E-mail', path: '/emails/template' },
       ],
+    },
+    {
+      title: 'Número por Extenso',
+      icon: <TextQuote className="w-5 h-5" />,
+      path: '/numero-extenso'
     },
     {
       title: 'Users',
